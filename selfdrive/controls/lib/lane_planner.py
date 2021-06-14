@@ -1,13 +1,21 @@
 from common.numpy_fast import interp
 import numpy as np
 from selfdrive.hardware import EON, TICI
+from selfdrive.swaglog import cloudlog
 from cereal import log
 
 
 TRAJECTORY_SIZE = 33
-
-CAMERA_OFFSET = 0.0
-PATH_OFFSET = 0.2
+# camera offset is meters from center car to camera
+if EON:
+  CAMERA_OFFSET = 0.06
+  PATH_OFFSET = 0.0
+elif TICI:
+  CAMERA_OFFSET = -0.04
+  PATH_OFFSET = -0.04
+else:
+  CAMERA_OFFSET = 0.0
+  PATH_OFFSET = 0.0
 
 
 class LanePlanner:
@@ -53,6 +61,7 @@ class LanePlanner:
   def get_d_path(self, v_ego, path_t, path_xyz):
     # Reduce reliance on lanelines that are too far apart or
     # will be in a few seconds
+    path_xyz[:, 1] -= self.path_offset
     l_prob, r_prob = self.lll_prob, self.rll_prob
     width_pts = self.rll_y - self.lll_y
     prob_mods = []
@@ -73,7 +82,7 @@ class LanePlanner:
     self.lane_width_certainty += 0.05 * (l_prob * r_prob - self.lane_width_certainty)
     current_lane_width = abs(self.rll_y[0] - self.lll_y[0])
     self.lane_width_estimate += 0.005 * (current_lane_width - self.lane_width_estimate)
-    speed_lane_width = interp(v_ego, [50/3.6, 130/3.6], [2.2, 3.7])
+    speed_lane_width = interp(v_ego, [0., 31.], [2.8, 3.5])
     self.lane_width = self.lane_width_certainty * self.lane_width_estimate + \
                       (1 - self.lane_width_certainty) * speed_lane_width
 
@@ -83,9 +92,10 @@ class LanePlanner:
 
     self.d_prob = l_prob + r_prob - l_prob * r_prob
     lane_path_y = (l_prob * path_from_left_lane + r_prob * path_from_right_lane) / (l_prob + r_prob + 0.0001)
-    lane_path_y_interp = np.interp(path_t, self.ll_t, lane_path_y)
-    path_xyz[:,1] = self.d_prob * lane_path_y_interp + (1.0 - self.d_prob) * path_xyz[:,1]
-
-    self.path_offset = interp(v_ego, [20/3.6, 70/3.6, 90/3.6], [0.12, 0.06, 0]) #Above 90 is highway speed
-    path_xyz[:, 1] -= self.path_offset
+    safe_idxs = np.isfinite(self.ll_t)
+    if safe_idxs[0]:
+      lane_path_y_interp = np.interp(path_t, self.ll_t[safe_idxs], lane_path_y[safe_idxs])
+      path_xyz[:,1] = self.d_prob * lane_path_y_interp + (1.0 - self.d_prob) * path_xyz[:,1]
+    else:
+      cloudlog.warning("Lateral mpc - NaNs in laneline times, ignoring")
     return path_xyz
