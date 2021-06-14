@@ -192,7 +192,6 @@ class CarState(CarStateBase):
     ret.gasPressed = ret.gas > 0
     ret.brake = pt_cp.vl["Bremse_5"]['Bremsdruck'] / 250.0  # FIXME: this is pressure in Bar, not sure what OP expects
     ret.brakePressed = bool(pt_cp.vl["Motor_2"]['Bremstestschalter'])
-    ret.brakeLights = bool(pt_cp.vl["Motor_2"]['Bremslichtschalter'])
 
     # Update gear and/or clutch position data.
     if trans_type == TransmissionType.automatic:
@@ -442,7 +441,7 @@ class CarState(CarStateBase):
     #   signals += [("ACA_V_Wunsch", "ACC_GRA_Anziege", 0)]  # ACC set speed
     #   checks += [("ACC_GRA_Anziege", 25)]  # From J428 ACC radar control module
 
-    return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, CANBUS.pt)
+    return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, CANBUS.pt, False)
 
   @staticmethod
   def get_mqb_cam_can_parser(CP):
