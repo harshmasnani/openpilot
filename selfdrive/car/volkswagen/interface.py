@@ -32,34 +32,18 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "volkswagen"
     ret.radarOffCan = True
 
-    if candidate in PQ_CARS:
-      # Set common PQ35/PQ46/NMS parameters that will apply globally
-      ret.safetyModel = car.CarParams.SafetyModel.volkswagenPq
-      ret.steerActuatorDelay = 0.05
+    # Set common PQ35/PQ46/NMS parameters that will apply globally
+    ret.safetyModel = car.CarParams.SafetyModel.volkswagenPq
+    ret.steerActuatorDelay = 0.05
 
-      if 0x440 in fingerprint[0]:
-        # Getriebe_1 detected: traditional automatic or DSG gearbox
-        ret.transmissionType = TransmissionType.automatic
-      else:
-        # No trans message at all, must be a true stick-shift manual
-        ret.transmissionType = TransmissionType.manual
-      cloudlog.info("Detected transmission type: %s", ret.transmissionType)
+    if 0x440 in fingerprint[0]:
+      # Getriebe_1 detected: traditional automatic or DSG gearbox
+      ret.transmissionType = TransmissionType.automatic
     else:
-      # Set common MQB parameters that will apply globally
-      ret.safetyModel = car.CarParams.SafetyModel.volkswagen
-      ret.steerActuatorDelay = 0.05
-
-      if 0xAD in fingerprint[0]:
-        # Getriebe_11 detected: traditional automatic or DSG gearbox
-        ret.transmissionType = TransmissionType.automatic
-      elif 0x187 in fingerprint[0]:
-        # EV_Gearshift detected: e-Golf or similar direct-drive electric
-        ret.transmissionType = TransmissionType.direct
-      else:
-        # No trans message at all, must be a true stick-shift manual
-        ret.transmissionType = TransmissionType.manual
-      cloudlog.info("Detected transmission type: %s", ret.transmissionType)
-
+      # No trans message at all, must be a true stick-shift manual
+      ret.transmissionType = TransmissionType.manual
+    cloudlog.info("Detected transmission type: %s", ret.transmissionType)
+    
     # Global tuning defaults, can be overridden per-vehicle
 
     ret.steerRateCost = 1.0
@@ -67,18 +51,16 @@ class CarInterface(CarInterfaceBase):
     ret.steerRatio = 15.6  # Let the params learner figure this out
     tire_stiffness_factor = 0.8  # Let the params learner figure this out
     ret.lateralTuning.pid.kf = 0.00006
-    ret.lateralTuning.pid.kpBP = [0., 14., 35.]
-    ret.lateralTuning.pid.kiBP = [0., 14., 35.]
-    ret.lateralTuning.pid.kpV = [0.12, 0.165, 0.185]
-    ret.lateralTuning.pid.kiV = [0.09, 0.10, 0.11]
+    
+    ret.lateralTuning.pid.kpBP = [0., 105*CV.KPH_TO_MS]
+    ret.lateralTuning.pid.kiBP = [0., 105*CV.KPH_TO_MS]
 
-    # Per-chassis tuning values, override tuning defaults here if desired
+    ret.lateralTuning.pid.kpV = [0.15, 0.15]
+    ret.lateralTuning.pid.kiV = [0.05,  0.09]
 
-    if candidate == CAR.GOLF_MK6:
-      # Averages of all 1K/5K/AJ Golf variants
-      ret.mass = 1617+100+STD_CARGO_KG
-      ret.wheelbase = 2.68
-      ret.minSteerSpeed = 20 * CV.KPH_TO_MS  # May be lower depending on model-year/EPS FW
+    ret.mass = 1617+100+STD_CARGO_KG
+    ret.wheelbase = 2.68
+    ret.minSteerSpeed = 20 * CV.KPH_TO_MS
 
     ret.centerToFront = ret.wheelbase * 0.4
 
