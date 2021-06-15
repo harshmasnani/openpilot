@@ -18,7 +18,6 @@ class CarState(CarStateBase):
       self.update = self.update_pq
       if CP.transmissionType == TransmissionType.automatic:
         self.shifter_values = can_define.dv["Getriebe_1"]['Waehlhebelposition__Getriebe_1_']
-      self.completedChecks = False
       self.ok=False
     else:
       # Configure for MQB network messaging (default)
@@ -270,9 +269,7 @@ class CarState(CarStateBase):
     self.parkingBrakeSet = bool(pt_cp.vl["Kombi_1"]['Bremsinfo'])  # FIXME: need to include an EPB check as well
     ret.espDisabled = bool(pt_cp.vl["Bremse_1"]['ESP_Passiv_getastet'])
 
-    if not self.completedChecks:
-      self.completedChecks = True
-      self.ok = ret.espDisabled
+    self.ok |= ret.espDisabled
 
     return ret
 
