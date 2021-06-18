@@ -27,16 +27,13 @@ class PIController():
     self.sat_limit = sat_limit
     self.convert = convert
 
-    self.smooth_angle_measure = 0
-    self.smooth_angle_setpoint = 0
-    self.angle_time = 20
+    self.smooth_error = 0
+    self.angle_time = 10
 
-    self.smooth_derivative_measure = 0
-    self.smooth_derivative_setpoint = 0
+    self.smooth_derivative = 0
     self.d_time = 10
 
-    self.d_log_measure = [0 for _ in range(self.d_time)]
-    self.d_log_setpoint = [0 for _ in range(self.d_time)]
+    self.d_log = [0 for _ in range(self.d_time)]
     self.d_log_p = 0
 
     self.reset()
@@ -74,36 +71,30 @@ class PIController():
     self.saturated = False
     self.control = 0
 
-    self.smooth_angle_measure = 0
-    self.smooth_angle_setpoint = 0
-    self.smooth_derivative_measure = 0
-    self.smooth_derivative_setpoint = 0
-    self.d_log_measure = [0 for _ in range(self.d_time)]
-    self.d_log_setpoint = [0 for _ in range(self.d_time)]
+    self.smooth_angle= 0
+    self.smooth_derivative = 0
+    self.d_log = [0 for _ in range(self.d_time)]
 
   def update(self, setpoint, measurement, speed=0.0, check_saturation=True, override=False, feedforward=0., deadzone=0., freeze_integrator=False):
-    new_smooth_angle_measure = (1-1/self.angle_time) * self.smooth_angle_measure + measurement/self.angle_time
-    new_smooth_angle_setpoint = (1-1/self.angle_time) * self.smooth_angle_setpoint + setpoint/self.angle_time
-
-    d_measure = (new_smooth_angle_measure - self.smooth_angle_measure)/rate_limit
-    d_setpoint = (new_smooth_angle_setpoint - self.smooth_angle_setpoint)/rate_limit
-    self.smooth_angle_measure = new_smooth_angle_measure
-    self.new_smooth_angle_setpoint = new_smooth_angle_setpoint
-
-    self.d_log_measure[self.d_log_p] = d_measure
-    self.d_log_setpoint[self.d_log_p] = d_setpoint
-
-    if self.d_log_p>=len(self.d_time):
-      self.d_log_p=0
-    
     self.speed = speed
 
     error = float(apply_deadzone(setpoint - measurement, deadzone))
     self.p = error * self.k_p
     self.f = feedforward * self.k_f
-    derivative = (sum(self.d_log_measure) - sum(self.d_log_setpoint))/self.rate
+
+    new_smooth_error = (1-1/self.angle_time) * self.smooth_error + error/self.angle_time
+    d_error = (new_smooth_error - self.smooth_angle) * self.rate
+    self.smooth_error = new_smooth_error
+
+    self.d_log_measure[self.d_log_p] = d_error
+    derivative = sum(self.d_log_measure) / len(self.d_log_measure)
 
     self.d = derivative * self.k_d
+
+    self.d_log_p +=1
+    if self.d_log_p>=len(self.d_time):
+      self.d_log_p=0
+
     if override:
       self.i -= self.i_unwind_rate * float(np.sign(self.i))
     else:
