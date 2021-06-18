@@ -24,6 +24,7 @@ class PIController():
     self.sat_count_rate = 1.0 / rate
     self.i_unwind_rate = 0.3 / rate
     self.i_rate = 1.0 / rate
+    self.d_rate = rate
     self.sat_limit = sat_limit
     self.convert = convert
 
@@ -82,17 +83,17 @@ class PIController():
     self.p = error * self.k_p
     self.f = feedforward * self.k_f
 
-    new_smooth_error = (1-1/self.angle_time) * self.smooth_error + error/self.angle_time
-    d_error = (new_smooth_error - self.smooth_angle) * self.rate
+    new_smooth_error = (1 - 1/self.angle_time) * self.smooth_error + error / self.angle_time
+    d_error = (new_smooth_error - self.smooth_angle) * self.d_rate
     self.smooth_error = new_smooth_error
 
-    self.d_log_measure[self.d_log_p] = d_error
-    derivative = sum(self.d_log_measure) / len(self.d_log_measure)
+    self.d_log[self.d_log_p] = d_error
+    derivative = sum(self.d_log) / len(self.d_log)
 
     self.d = derivative * self.k_d
 
     self.d_log_p +=1
-    if self.d_log_p>=len(self.d_time):
+    if self.d_log_p>=self.d_time:
       self.d_log_p=0
 
     if override:
@@ -111,7 +112,7 @@ class PIController():
          not freeze_integrator:
         self.i = i
 
-    control = self.p + self.f + self.i
+    control = self.p + self.f + self.i + self.d
     if self.convert is not None:
       control = self.convert(control, speed=self.speed)
 
