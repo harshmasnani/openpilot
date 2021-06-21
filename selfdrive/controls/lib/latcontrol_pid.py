@@ -9,6 +9,7 @@ class LatControlPID():
   def __init__(self, CP):
     self.pid = PIController((CP.lateralTuning.pid.kpBP, CP.lateralTuning.pid.kpV),
                             (CP.lateralTuning.pid.kiBP, CP.lateralTuning.pid.kiV),
+                            (CP.lateralTuning.pid.kdBP, CP.lateralTuning.pid.kdV),
                             k_f=CP.lateralTuning.pid.kf, pos_limit=1.0, neg_limit=-1.0,
                             sat_limit=CP.steerLimitTimer)
 
@@ -36,7 +37,7 @@ class LatControlPID():
       steer_feedforward = angle_steers_des_no_offset  # offset does not contribute to resistive torque
       steer_feedforward *= CS.vEgo**2  # proportional to realigning tire momentum (~ lateral accel)
 
-      deadzone = 0.0
+      deadzone = 0.15
 
       check_saturation = (CS.vEgo > 10) and not CS.steeringRateLimited and not CS.steeringPressed
       output_steer = self.pid.update(angle_steers_des, CS.steeringAngleDeg, check_saturation=check_saturation, override=CS.steeringPressed,
@@ -45,6 +46,7 @@ class LatControlPID():
       pid_log.p = self.pid.p
       pid_log.i = self.pid.i
       pid_log.f = self.pid.f
+      pid_log.d = self.pid.d
       pid_log.output = output_steer
       pid_log.saturated = bool(self.pid.saturated)
 
