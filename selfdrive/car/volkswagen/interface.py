@@ -56,9 +56,9 @@ class CarInterface(CarInterfaceBase):
     ret.lateralTuning.pid.kiBP = [0., 105*CV.KPH_TO_MS]
     ret.lateralTuning.pid.kdBP = [0., 105*CV.KPH_TO_MS]
 
-    ret.lateralTuning.pid.kpV = [0.15, 0.2]
-    ret.lateralTuning.pid.kiV = [0.05,  0.11]
-    ret.lateralTuning.pid.kdV = [0.0006,  0.0006]
+    ret.lateralTuning.pid.kpV = [0.15, 0.19]
+    ret.lateralTuning.pid.kiV = [0.05,  0.08]
+    ret.lateralTuning.pid.kdV = [0.0003,  0.0012]
 
     ret.mass = 1617+100+STD_CARGO_KG
     ret.wheelbase = 2.68
