@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root version="2.3.8">
+ <tabbed_widget parent="main_window" name="Main Window">
+  <Tab containers="1" tab_name="tab1">
+   <Container>
+    <DockSplitter orientation="-" count="2" sizes="0.500392;0.499608">
+     <DockArea name="...">
+      <plot style="Lines" mode="TimeSeries">
+       <range left="416.183894" bottom="-25.501872" top="19.753735" right="1232.630961"/>
+       <limitY/>
+       <curve color="#1f77b4" name="/carState/steeringAngleDeg"/>
+       <curve color="#ff7f0e" name="/controlsState/steeringAngleDesiredDeg"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot style="Lines" mode="TimeSeries">
+       <range left="416.183894" bottom="0.473924" top="0.613752" right="1232.630961"/>
+       <limitY/>
+       <curve color="#ff7f0e" name="/controlsState/steeringAngleDesiredDeg"/>
+       <curve color="#9467bd" name="AngleErrorSmooth"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="0"/>
+ </tabbed_widget>
+ <use_relative_time_offset enabled="1"/>
+ <!-- - - - - - - - - - - - - - - -->
+ <!-- - - - - - - - - - - - - - - -->
+ <Plugins>
+  <plugin ID="DataLoad Rlog"/>
+  <plugin ID="Cereal Subscriber"/>
+ </Plugins>
+ <!-- - - - - - - - - - - - - - - -->
+ <previouslyLoaded_Datafiles>
+  <fileInfo prefix="" filename="/home/gregor/openpilot/tools/plotjuggler/tmpg0d6hzmt.rlog">
+   <selected_datasources value=""/>
+   <plugin ID="DataLoad Rlog"/>
+  </fileInfo>
+ </previouslyLoaded_Datafiles>
+ <!-- - - - - - - - - - - - - - - -->
+ <customMathEquations>
+  <snippet name="AngleErrorSmooth">
+   <global>valu = 0
+ni = 10000
+</global>
+   <function>val = math.abs(value - v1)
+
+valu= (1-1/ni)* valu + val/ni
+return valu</function>
+   <linkedSource>/carState/steeringAngleDeg</linkedSource>
+   <additionalSources>
+    <v1>/controlsState/steeringAngleDesiredDeg</v1>
+   </additionalSources>
+  </snippet>
+ </customMathEquations>
+ <snippets/>
+ <!-- - - - - - - - - - - - - - - -->
+</root>
+
