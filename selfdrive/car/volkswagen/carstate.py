@@ -4,32 +4,23 @@ from selfdrive.config import Conversions as CV
 from selfdrive.car.interfaces import CarStateBase
 from opendbc.can.parser import CANParser
 from opendbc.can.can_define import CANDefine
-from selfdrive.car.volkswagen.values import DBC, CANBUS, TransmissionType, GearShifter, BUTTON_STATES, CarControllerParams
+from selfdrive.car.volkswagen.values import DBC, DBC_FILES, CANBUS, TransmissionType, GearShifter, BUTTON_STATES, CarControllerParams
 
 class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint]['pt'])
 
-    if CP.safetyModel == car.CarParams.SafetyModel.volkswagenPq:
-      # Configure for PQ35/PQ46/NMS network messaging
-      self.get_can_parser = self.get_pq_can_parser
-      self.get_cam_can_parser = self.get_pq_cam_can_parser
-      self.update = self.update_pq
-      if CP.transmissionType == TransmissionType.automatic:
-        self.shifter_values = can_define.dv["Getriebe_1"]['Waehlhebelposition__Getriebe_1_']
-      self.ok=False
-    else:
-      # Configure for MQB network messaging (default)
-      self.get_can_parser = self.get_mqb_can_parser
-      self.get_cam_can_parser = self.get_mqb_cam_can_parser
-      self.update = self.update_mqb
-      if CP.transmissionType == TransmissionType.automatic:
-        self.shifter_values = can_define.dv["Getriebe_11"]['GE_Fahrstufe']
-      elif CP.transmissionType == TransmissionType.direct:
-        self.shifter_values = can_define.dv["EV_Gearshift"]['GearPosition']
+    # Configure for PQ35/PQ46/NMS network messaging
+    self.get_can_parser = self.get_pq_can_parser
+    self.get_cam_can_parser = self.get_pq_cam_can_parser
+    self.update = self.update_pq
+    if CP.transmissionType == TransmissionType.automatic:
+      self.shifter_values = can_define.dv["Getriebe_1"]['Waehlhebelposition__Getriebe_1_']
+    self.ok=False
     self.buttonStates = BUTTON_STATES.copy()
 
+    
   def update_mqb(self, pt_cp, cam_cp, trans_type):
     ret = car.CarState.new_message()
     # Update vehicle speed and acceleration from ABS wheel speeds.
@@ -293,8 +284,8 @@ class CarState(CarStateBase):
       ("ZV_HFS_offen", "Gateway_72", 0),            # Door open, rear left
       ("ZV_HBFS_offen", "Gateway_72", 0),           # Door open, rear right
       ("ZV_HD_offen", "Gateway_72", 0),             # Trunk or hatch open
-      ("BH_Blinker_li", "Gateway_72", 0),           # Left turn signal on
-      ("BH_Blinker_re", "Gateway_72", 0),           # Right turn signal on
+      ("Comfort_Signal_Left", "Blinkmodi_02", 0),   # Left turn signal including comfort blink interval
+      ("Comfort_Signal_Right", "Blinkmodi_02", 0),  # Right turn signal including comfort blink interval
       ("AB_Gurtschloss_FA", "Airbag_02", 0),        # Seatbelt status, driver
       ("AB_Gurtschloss_BF", "Airbag_02", 0),        # Seatbelt status, passenger
       ("ESP_Fahrer_bremst", "ESP_05", 0),           # Brake pedal pressed

@@ -1,6 +1,7 @@
 #include "selfdrive/ui/qt/onroad.h"
 
 #include <iostream>
+#include <QDebug>
 
 #include "selfdrive/common/swaglog.h"
 #include "selfdrive/common/timing.h"
@@ -67,9 +68,19 @@ void OnroadWindow::offroadTransition(bool offroad) {
 // ***** onroad widgets *****
 
 OnroadAlerts::OnroadAlerts(QWidget *parent) : QWidget(parent) {
-  for (auto &kv : sound_map) {
-    auto path = QUrl::fromLocalFile(kv.second.first);
-    sounds[kv.first].setSource(path);
+  std::tuple<AudibleAlert, QString, bool> sound_list[] = {
+    {AudibleAlert::CHIME_DISENGAGE, "../assets/sounds/disengaged.wav", false},
+    {AudibleAlert::CHIME_ENGAGE, "../assets/sounds/engaged.wav", false},
+    {AudibleAlert::CHIME_WARNING1, "../assets/sounds/warning_1.wav", false},
+    {AudibleAlert::CHIME_WARNING2, "../assets/sounds/warning_2.wav", false},
+    {AudibleAlert::CHIME_WARNING2_REPEAT, "../assets/sounds/warning_2.wav", true},
+    {AudibleAlert::CHIME_WARNING_REPEAT, "../assets/sounds/warning_repeat.wav", true},
+    {AudibleAlert::CHIME_ERROR, "../assets/sounds/error.wav", false},
+    {AudibleAlert::CHIME_PROMPT, "../assets/sounds/error.wav", false}};
+
+  for (auto &[alert, fn, loops] : sound_list) {
+    sounds[alert].first.setSource(QUrl::fromLocalFile(fn));
+    sounds[alert].second = loops ? QSoundEffect::Infinite : 0;
   }
 }
 
@@ -132,24 +143,23 @@ void OnroadAlerts::updateAlert(const QString &t1, const QString &t2, float blink
 }
 
 void OnroadAlerts::playSound(AudibleAlert alert) {
-  int loops = sound_map[alert].second ? QSoundEffect::Infinite : 0;
-  sounds[alert].setLoopCount(loops);
-  sounds[alert].setVolume(volume);
-  sounds[alert].play();
+  auto &[sound, loops] = sounds[alert];
+  sound.setLoopCount(loops);
+  sound.setVolume(volume);
+  sound.play();
 }
 
 void OnroadAlerts::stopSounds() {
   for (auto &kv : sounds) {
     // Only stop repeating sounds
-    if (kv.second.loopsRemaining() == QSoundEffect::Infinite) {
-      kv.second.stop();
+    auto &[sound, loops] = kv.second;
+    if (sound.loopsRemaining() == QSoundEffect::Infinite) {
+      sound.stop();
     }
   }
 }
 
 void OnroadAlerts::paintEvent(QPaintEvent *event) {
-  QPainter p(this);
-
   if (alert_size == cereal::ControlsState::AlertSize::NONE) {
     return;
   }
@@ -160,6 +170,8 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
   };
   int h = alert_sizes[alert_size];
   QRect r = QRect(0, height() - h, width(), h);
+
+  QPainter p(this);
 
   // draw background + gradient
   p.setPen(Qt::NoPen);
@@ -213,10 +225,10 @@ NvgWindow::~NvgWindow() {
 
 void NvgWindow::initializeGL() {
   initializeOpenGLFunctions();
-  std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
-  std::cout << "OpenGL vendor: " << glGetString(GL_VENDOR) << std::endl;
-  std::cout << "OpenGL renderer: " << glGetString(GL_RENDERER) << std::endl;
-  std::cout << "OpenGL language version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+  qInfo() << "OpenGL version:" << QString((const char*)glGetString(GL_VERSION));
+  qInfo() << "OpenGL vendor:" << QString((const char*)glGetString(GL_VENDOR));
+  qInfo() << "OpenGL renderer:" << QString((const char*)glGetString(GL_RENDERER));
+  qInfo() << "OpenGL language version:" << QString((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
 
   ui_nvg_init(&QUIState::ui_state);
   prev_draw_t = millis_since_boot();

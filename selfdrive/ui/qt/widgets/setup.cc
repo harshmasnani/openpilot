@@ -10,7 +10,6 @@
 #include <QVBoxLayout>
 #include <QrCode.hpp>
 
-#include "selfdrive/common/params.h"
 #include "selfdrive/ui/qt/request_repeater.h"
 
 using qrcodegen::QrCode;
@@ -31,19 +30,8 @@ void PairingQRWidget::showEvent(QShowEvent *event) {
 }
 
 void PairingQRWidget::refresh() {
-  Params params;
-  QString IMEI = QString::fromStdString(params.get("IMEI"));
-  QString serial = QString::fromStdString(params.get("HardwareSerial"));
-
-  if (std::min(IMEI.length(), serial.length()) <= 5) {
-    qrCode->setText("Error getting serial: contact support");
-    qrCode->setWordWrap(true);
-    qrCode->setStyleSheet(R"(font-size: 60px;)");
-    return;
-  }
   QString pairToken = CommaApi::create_jwt({{"pair", true}});
-
-  QString qrString = IMEI + "--" + serial + "--" + pairToken;
+  QString qrString = "https://my.comma.ai/?pair=" + pairToken;
   this->updateQrCode(qrString);
 }
 
@@ -101,14 +89,12 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   )");
 
   // set up API requests
-  QString dongleId = QString::fromStdString(Params().get("DongleId"));
-  if (!dongleId.length()) {
-    return;
+  std::string dongleId = Params().get("DongleId");
+  if (util::is_valid_dongle_id(dongleId)) {
+    std::string url = "https://api.commadotai.com/v1/devices/" + dongleId + "/owner";
+    RequestRepeater *repeater = new RequestRepeater(this, QString::fromStdString(url), "ApiCache_Owner", 6);
+    QObject::connect(repeater, &RequestRepeater::receivedResponse, this, &PrimeUserWidget::replyFinished);
   }
-
-  QString url = "https://api.commadotai.com/v1/devices/" + dongleId + "/owner";
-  RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_Owner", 6);
-  QObject::connect(repeater, &RequestRepeater::receivedResponse, this, &PrimeUserWidget::replyFinished);
 }
 
 void PrimeUserWidget::replyFinished(const QString &response) {
@@ -191,7 +177,7 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   QVBoxLayout* qrLayout = new QVBoxLayout(q);
 
   qrLayout->addSpacing(30);
-  QLabel* qrLabel = new QLabel("Scan with comma connect!");
+  QLabel* qrLabel = new QLabel("Scan QR code to pair!");
   qrLabel->setWordWrap(true);
   qrLabel->setAlignment(Qt::AlignHCenter);
   qrLabel->setStyleSheet(R"(
@@ -232,12 +218,14 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   setSizePolicy(sp_retain);
 
   // set up API requests
-  QString dongleId = QString::fromStdString(Params().get("DongleId"));
-  QString url = "https://api.commadotai.com/v1.1/devices/" + dongleId + "/";
-  RequestRepeater* repeater = new RequestRepeater(this, url, "ApiCache_Device", 5);
+  std::string dongleId = Params().get("DongleId");
+  if (util::is_valid_dongle_id(dongleId)) {
+    std::string url = "https://api.commadotai.com/v1.1/devices/" + dongleId + "/";
+    RequestRepeater* repeater = new RequestRepeater(this, QString::fromStdString(url), "ApiCache_Device", 5);
 
-  QObject::connect(repeater, &RequestRepeater::receivedResponse, this, &SetupWidget::replyFinished);
-  QObject::connect(repeater, &RequestRepeater::failedResponse, this, &SetupWidget::parseError);
+    QObject::connect(repeater, &RequestRepeater::receivedResponse, this, &SetupWidget::replyFinished);
+    QObject::connect(repeater, &RequestRepeater::failedResponse, this, &SetupWidget::parseError);
+  }
   hide(); // Only show when first request comes back
 }
 
