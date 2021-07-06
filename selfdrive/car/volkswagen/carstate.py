@@ -4,7 +4,7 @@ from selfdrive.config import Conversions as CV
 from selfdrive.car.interfaces import CarStateBase
 from opendbc.can.parser import CANParser
 from opendbc.can.can_define import CANDefine
-from selfdrive.car.volkswagen.values import DBC_FILES, CANBUS, TransmissionType, GearShifter, BUTTON_STATES, CarControllerParams
+from selfdrive.car.volkswagen.values import DBC, DBC_FILES, CANBUS, TransmissionType, GearShifter, BUTTON_STATES, CarControllerParams
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -18,6 +18,9 @@ class CarState(CarStateBase):
     if CP.transmissionType == TransmissionType.automatic:
       self.shifter_values = can_define.dv["Getriebe_1"]['Waehlhebelposition__Getriebe_1_']
     self.ok=False
+    self.buttonStates = BUTTON_STATES.copy()
+
+    
   def update_mqb(self, pt_cp, cam_cp, trans_type):
     ret = car.CarState.new_message()
     # Update vehicle speed and acceleration from ABS wheel speeds.
@@ -426,7 +429,7 @@ class CarState(CarStateBase):
     #   signals += [("ACA_V_Wunsch", "ACC_GRA_Anziege", 0)]  # ACC set speed
     #   checks += [("ACC_GRA_Anziege", 25)]  # From J428 ACC radar control module
 
-    return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, CANBUS.pt)
+    return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, CANBUS.pt, False)
 
   @staticmethod
   def get_mqb_cam_can_parser(CP):

@@ -31,7 +31,7 @@ class CANBUS:
   cam = 2
 
 class DBC_FILES:
-  mqb = "vw_mqb_2010"  # Used for all cars with MQB-style CAN messaging
+  mqb = "vw_golf_mk4"  # Used for all cars with MQB-style CAN messaging
 
 DBC = defaultdict(lambda: dbc_dict(DBC_FILES.mqb, None))  # type: Dict[str, Dict[str, str]]
 
