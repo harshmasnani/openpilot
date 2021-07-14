@@ -2,7 +2,7 @@ import math
 
 from selfdrive.controls.lib.pid import PIController
 from selfdrive.controls.lib.drive_helpers import get_steer_max
-from cereal import log
+from cereal import log, messaging
 
 
 class LatControlPID():
@@ -12,6 +12,9 @@ class LatControlPID():
                             (CP.lateralTuning.pid.kdBP, CP.lateralTuning.pid.kdV),
                             k_f=CP.lateralTuning.pid.kf, pos_limit=1.0, neg_limit=-1.0,
                             sat_limit=CP.steerLimitTimer)
+    self.sm = messaging.sub_sock("modelTorque")
+    self.lastMTorque = 0
+    self.mActive = False
 
   def reset(self):
     self.pid.reset()
@@ -28,6 +31,7 @@ class LatControlPID():
       output_steer = 0.0
       pid_log.active = False
       self.pid.reset()
+      # print("not active")
     else:
       steers_max = get_steer_max(CP, CS.vEgo)
       self.pid.pos_limit = steers_max
@@ -42,12 +46,19 @@ class LatControlPID():
       check_saturation = (CS.vEgo > 10) and not CS.steeringRateLimited and not CS.steeringPressed
       output_steer = self.pid.update(angle_steers_des, CS.steeringAngleDeg, check_saturation=check_saturation, override=CS.steeringPressed,
                                      feedforward=steer_feedforward, speed=CS.vEgo, deadzone=deadzone)
+      modelLog = messaging.recv_one_or_none(self.sm)
+      if modelLog is not None:
+        # print(modelLog.to_dict())
+        self.mActive = modelLog.modelTorque.active
+        if self.mActive:
+          self.lastMTorque = modelLog.modelTorque.outputTorque
+
       pid_log.active = True
       pid_log.p = self.pid.p
       pid_log.i = self.pid.i
       pid_log.f = self.pid.f
       pid_log.d = self.pid.d
-      pid_log.output = output_steer
+      pid_log.output = self.lastMTorque if self.mActive else output_steer
       pid_log.saturated = bool(self.pid.saturated)
 
     return output_steer, angle_steers_des, pid_log
