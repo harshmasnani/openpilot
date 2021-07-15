@@ -26,7 +26,7 @@ from selfdrive.locationd.calibrationd import Calibration
 
 import numpy as np
 from random import random
-MODEL_MIN_SPEED = 50 * CV.KPH_TO_MS # minimum speed to use model
+MODEL_MIN_SPEED = 90 * CV.KPH_TO_MS # minimum speed to use model
 
 STEER_FACTOR = 300/2 # We can add 4 out of 300 cNm per one output frame which runs at 50 Hz. So the factor is 300 due to the unit but /2 because 20ms instead of 10 
 STEER_DELTA_UP = 4/STEER_FACTOR
@@ -151,7 +151,7 @@ def carParams():
 
 import numpy as np
 
-wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
 w, b = wb['wb']
 
 def model(x):
@@ -178,7 +178,7 @@ def get_model_input(phi, v, M, IMU_v, IMU_alpha, M_fut):
 class ModelControls:
   def __init__(self):
     self.frame = 0
-    config_realtime_process(4, Priority.CTRL_HIGH)
+    # config_realtime_process(4, Priority.CTRL_HIGH)
 
     # Setup sockets
     self.pm = messaging.PubMaster(['modelTorque'])
@@ -228,7 +228,7 @@ class ModelControls:
       pass
     if not self.active and v > MODEL_MIN_SPEED:
       self.active = True
-    if self.active and v < MODEL_MIN_SPEED - 5:
+    if self.active and v < MODEL_MIN_SPEED - 10*CV.KPH_TO_MS:
       self.active = False
     self.outputTorque = M
 
@@ -314,9 +314,16 @@ class ModelControls:
     self.pm.send('modelTorque', model_send)
 
   def model_thread(self):
+    count = 0
+    l = sec_since_boot()
     while True:
+      count +=1
       self.step()
-      self.rk.keep_time()
+      if not self.rk.keep_time():
+        pass
+        # print("MODEL CONTROLS LAG")
+      # if random()<0.01:
+      #   print((count)/(sec_since_boot()-l))  
 
 if __name__ == "__main__":
   controls = ModelControls()
