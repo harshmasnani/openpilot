@@ -4,7 +4,7 @@
 
 import numpy as np
 
-wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
 w, b = wb['wb']
 
 def predict(x):

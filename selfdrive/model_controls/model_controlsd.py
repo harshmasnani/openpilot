@@ -1,28 +1,12 @@
 #!/usr/bin/env python3
-import os
 import math
 from cereal import car, log
 from common.numpy_fast import clip
 from common.realtime import sec_since_boot, config_realtime_process, Priority, Ratekeeper, DT_CTRL
-from common.params import Params, put_nonblocking
 import cereal.messaging as messaging
 from selfdrive.config import Conversions as CV
-from selfdrive.swaglog import cloudlog
-from selfdrive.boardd.boardd import can_list_to_can_capnp
-from selfdrive.car.car_helpers import get_car, get_startup_event, get_one_can
-from selfdrive.controls.lib.lane_planner import CAMERA_OFFSET
-from selfdrive.controls.lib.drive_helpers import update_v_cruise, initialize_v_cruise
 from selfdrive.controls.lib.drive_helpers import get_lag_adjusted_curvature
-from selfdrive.controls.lib.longcontrol import LongControl, STARTING_TARGET_SPEED
-from selfdrive.controls.lib.latcontrol_pid import LatControlPID
-from selfdrive.controls.lib.latcontrol_indi import LatControlINDI
-from selfdrive.controls.lib.latcontrol_lqr import LatControlLQR
-from selfdrive.controls.lib.latcontrol_angle import LatControlAngle
-from selfdrive.controls.lib.events import Events, ET
-from selfdrive.controls.lib.alertmanager import AlertManager
 from selfdrive.controls.lib.vehicle_model import VehicleModel
-from selfdrive.controls.lib.longitudinal_planner import LON_MPC_STEP
-from selfdrive.locationd.calibrationd import Calibration
 
 import numpy as np
 from random import random
@@ -185,7 +169,7 @@ class ModelControls:
 
     self.sm = messaging.SubMaster(['lateralPlan', 'controlsState', 'carState', 'sensorEvents'])
 
-    self.rk = Ratekeeper(50, print_delay_threshold=None)
+    self.rk = Ratekeeper(100, print_delay_threshold=0.01)#10 ms, about controlsd time
     
     self.phi = np.zeros((prev_data,))
     self.v = np.zeros((prev_data,))
@@ -211,7 +195,8 @@ class ModelControls:
   def step(self):
     self.frame +=1
     self.parse_logs()
-    self.predict_torque()
+    if self.frame % 2 == 1:
+      self.predict_torque()
     self.publish_logs()
 
   def parse_logs(self):
@@ -314,16 +299,9 @@ class ModelControls:
     self.pm.send('modelTorque', model_send)
 
   def model_thread(self):
-    count = 0
-    l = sec_since_boot()
     while True:
-      count +=1
       self.step()
-      if not self.rk.keep_time():
-        pass
-        # print("MODEL CONTROLS LAG")
-      # if random()<0.01:
-      #   print((count)/(sec_since_boot()-l))  
+      self.rk.keep_time()
 
 if __name__ == "__main__":
   controls = ModelControls()
