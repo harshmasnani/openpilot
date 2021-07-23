@@ -13,17 +13,17 @@ from random import random
 MODEL_MIN_SPEED = 90 * CV.KPH_TO_MS # minimum speed to use model
 
 STEER_FACTOR = 300/2 # We can add 4 out of 300 cNm per one output frame which runs at 50 Hz. So the factor is 300 due to the unit but /2 because 20ms instead of 10 
-STEER_DELTA_UP = 4/STEER_FACTOR
-STEER_DELTA_DOWN = 10/STEER_FACTOR
+STEER_DELTA_UP = 4
+STEER_DELTA_DOWN = 10
 
 def apply_std_steer_torque_limits(apply_torque, apply_torque_last):
+  # print(apply_torque, apply_torque_last)
   if apply_torque_last > 0:
-    apply_torque = clip(apply_torque, max(apply_torque_last - STEER_DELTA_DOWN, -STEER_DELTA_UP),
-                        apply_torque_last + STEER_DELTA_UP)
+    apply_torque = clip(apply_torque, max(apply_torque_last - STEER_DELTA_DOWN, -STEER_DELTA_UP), apply_torque_last + STEER_DELTA_UP)
   else:
-    apply_torque = clip(apply_torque, apply_torque_last - STEER_DELTA_UP,
-                        min(apply_torque_last + STEER_DELTA_DOWN, STEER_DELTA_UP))
+    apply_torque = clip(apply_torque, apply_torque_last - STEER_DELTA_UP, min(apply_torque_last + STEER_DELTA_DOWN, STEER_DELTA_UP))
 
+  # print(int(round(float(apply_torque))))
   return int(round(float(apply_torque)))
 
 #steering angle, speed, torque, IMU_linear, IMU_angular
@@ -134,7 +134,9 @@ def carParams():
 """
 
 import numpy as np
-
+#PC
+# wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+#C2
 wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
 w, b = wb['wb']
 
@@ -178,7 +180,7 @@ class ModelControls:
     self.IMU_alpha = [np.zeros((prev_data,)) for _ in range(3)]
 
     self.active = False #Ensure good init on change
-    self.outputTorque = 0 #TODO refactor this variable
+    self.outputTorque = 0 
     ##DEBUG##
     self.vcount = 0
     self.acount = 0
@@ -215,7 +217,6 @@ class ModelControls:
       self.active = True
     if self.active and v < MODEL_MIN_SPEED - 10*CV.KPH_TO_MS:
       self.active = False
-    self.outputTorque = M
 
     #Parse IMU data
     se = self.sm["sensorEvents"]
@@ -258,37 +259,25 @@ class ModelControls:
 
       steering_angle[i] = math.degrees(self.VM.get_steer_from_curvature(-desired_curvature, self.v[-1]))
     # print(steering_angle)
-    # bestTorque = self.outputTorque
-    M_fut = np.ones((fwd_data[-1],))*self.outputTorque
+    M_fut = np.ones((fwd_data[-1],))*self.M[-1]
 
     # for _ in range(3):
     model_input = get_model_input(self.phi, self.v, self.M, self.IMU_v, self.IMU_alpha, M_fut)
-    predicted_angle = model(model_input)
+    predicted_angle = model(model_input) * norm[0]
+
     #L1 je negativen ce moramo precej bolj zaviti
     L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(len(fwd_data))])
-    # L2 = sum([(predicted_angle[i]-steering_angle[i])**2 for i in range(len(fwd_data))])
 
-    #   tuning_factor = -1/20
-    #   bestTorque += L1*tuning_factor
-    #   bestTorque = clip(bestTorque, -1, 1)
-
-    #   prevTorque = self.outputTorque
-
-    #   for i in range(fwd_data[-1]):
-    #     M_fut[i] = apply_std_steer_torque_limits(bestTorque, prevTorque)
-    #     prevTorque = M_fut[i]
-    #   if self.frame % 10 == 0:
-    #     print("L1:",L1,"L2:",L2, "M:", bestTorque)
-    # if self.frame % 10 == 0:
-    #   print(bestTorque)
-    #   print(self.outputTorque, M_fut[0])
-    
     #Poenostavljena logika: Ali je trenutni navor dovolj velik?
     if L1 > 0:
-      self.outputTorque = -1
+      self.outputTorque = apply_std_steer_torque_limits(-300, 300*self.M[-1])/300
     else:
-      self.outputTorque = 1
-
+      self.outputTorque = apply_std_steer_torque_limits(300, 300*self.M[-1])/300
+    if self.frame % 225 == 0:
+      print()
+      print(self.phi[-1])
+      print(predicted_angle)
+      print(steering_angle)
   def publish_logs(self):
     model_send = messaging.new_message('modelTorque')
     model_send.valid = True

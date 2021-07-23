@@ -4,7 +4,6 @@ from selfdrive.controls.lib.pid import PIController
 from selfdrive.controls.lib.drive_helpers import get_steer_max
 from cereal import log, messaging
 
-
 class LatControlPID():
   def __init__(self, CP):
     self.pid = PIController((CP.lateralTuning.pid.kpBP, CP.lateralTuning.pid.kpV),
@@ -15,11 +14,13 @@ class LatControlPID():
     self.sm = messaging.sub_sock("modelTorque")
     self.lastMTorque = 0
     self.mActive = False
+    self.count = 0
 
   def reset(self):
     self.pid.reset()
 
   def update(self, active, CS, CP, VM, params, desired_curvature, desired_curvature_rate):
+    self.count+=1
     pid_log = log.ControlsState.LateralPIDState.new_message()
     pid_log.steeringAngleDeg = float(CS.steeringAngleDeg)
     pid_log.steeringRateDeg = float(CS.steeringRateDeg)
@@ -50,16 +51,20 @@ class LatControlPID():
       if modelLog is not None:
         # print(modelLog.to_dict())
         self.mActive = modelLog.modelTorque.active
-        if self.mActive:
-          self.lastMTorque = modelLog.modelTorque.outputTorque
+        self.lastMTorque = modelLog.modelTorque.outputTorque
       pid_log.active = True
       pid_log.p = self.pid.p
       pid_log.i = self.pid.i
       pid_log.f = self.pid.f
       pid_log.d = self.pid.d
+      pid_log.angleError = 1 if self.mActive else 0
       if self.mActive:
         output_steer = self.lastMTorque
       pid_log.output = output_steer
       pid_log.saturated = bool(self.pid.saturated)
+    if self.count % 200 == 0:
+      print()
+      print(CS.steeringAngleDeg, angle_steers_des)
+      print(output_steer, "1" if CS.steeringAngleDeg<angle_steers_des else "-1")
 
     return output_steer, angle_steers_des, pid_log
