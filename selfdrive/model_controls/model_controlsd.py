@@ -164,7 +164,7 @@ def get_model_input(phi, v, M, IMU_v, IMU_alpha, M_fut):
 class ModelControls:
   def __init__(self):
     self.frame = 0
-    # config_realtime_process(4, Priority.CTRL_HIGH)
+    config_realtime_process(2, Priority.CTRL_HIGH)
 
     # Setup sockets
     self.pm = messaging.PubMaster(['modelTorque'])
@@ -283,8 +283,10 @@ class ModelControls:
     model_send.valid = True
     # if self.frame % 10 == 0:
     #   print(self.active, self.outputTorque)
+    model_send.lag = -self.rk.remaining * 1000.
     model_send.modelTorque.active = self.active
     model_send.modelTorque.outputTorque = self.outputTorque
+
     self.pm.send('modelTorque', model_send)
 
   def model_thread(self):
