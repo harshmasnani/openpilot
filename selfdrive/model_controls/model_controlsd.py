@@ -278,12 +278,13 @@ class ModelControls:
       print(self.phi[-1])
       print(predicted_angle)
       print(steering_angle)
+      print(f"error: {L1}")
   def publish_logs(self):
     model_send = messaging.new_message('modelTorque')
     model_send.valid = True
     # if self.frame % 10 == 0:
     #   print(self.active, self.outputTorque)
-    model_send.lag = -self.rk.remaining * 1000.
+    model_send.modelTorque.lag = -self.rk.remaining * 1000.
     model_send.modelTorque.active = self.active
     model_send.modelTorque.outputTorque = self.outputTorque
 
