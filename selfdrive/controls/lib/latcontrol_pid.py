@@ -32,9 +32,9 @@ groups = [5, 15, 4, 20, 20]
 prev_data = 300
 fwd_data = [20, 40, 60, 80, 100]
 #PC
-wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+# wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
 #C2
-#wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
 w, b = wb['wb']
 
 def model(x):
