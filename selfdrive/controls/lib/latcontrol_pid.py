@@ -89,14 +89,14 @@ class ModelControls:
       self.IMU_alpha[i] = np.roll(self.IMU_alpha[i], -1)
       self.IMU_alpha[i][-1] = IMU_alpha[i]
     
-  def predict_torque(self, lat_plan, CP, VM):
+  def predict_torque(self, lat_plan, CP, VM, angle_offset):
     # Compute desired steering angle profile 
     steering_angle = [0]*len(fwd_data)
     for i in range(len(fwd_data)):
       CP.steerActuatorDelay = -0.2 + fwd_data[i]/100
       desired_curvature, _ = get_lag_adjusted_curvature(CP, self.v[-1], lat_plan.psis, lat_plan.curvatures, lat_plan.curvatureRates)
 
-      steering_angle[i] = math.degrees(VM.get_steer_from_curvature(-desired_curvature, self.v[-1]))
+      steering_angle[i] = math.degrees(VM.get_steer_from_curvature(-desired_curvature, self.v[-1])) + angle_offset
 
     M_fut = np.ones((fwd_data[-1],))*self.M[-1]
 
@@ -104,20 +104,13 @@ class ModelControls:
     predicted_angle = model(model_input) * norm[0]
 
     #L1 je negativen ce moramo precej bolj zaviti
-    L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(len(fwd_data))])
+    L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(len(fwd_data))])/ len(fwd_data)
 
     #Poenostavljena logika: Ali je trenutni navor dovolj velik?
     if L1 > 0:
       self.outputTorque = apply_std_steer_torque_limits(-STEER_FACTOR, STEER_FACTOR*self.M[-1])/STEER_FACTOR
     else:
       self.outputTorque = apply_std_steer_torque_limits(STEER_FACTOR, STEER_FACTOR*self.M[-1])/STEER_FACTOR
-
-    # if self.frame % 225 == 0:
-    #   print()
-    #   print(self.phi[-1])
-    #   print(predicted_angle)
-    #   print(steering_angle)
-    #   print(f"error: {L1}")
 
 
 # Create our controller
@@ -185,9 +178,15 @@ class LatControlPID():
             self.IMU_alpha = sensor.gyro.v
       self.model.parse_logs(CS.steeringAngleDeg, CS.vEgo, self.M, self.IMU_v, self.IMU_alpha)
       if self.count % 2 == 0:
-        self.model.predict_torque(lat_plan, CP, VM)
+        self.model.predict_torque(lat_plan, CP, VM, params.angleOffsetDeg)
       if self.model.active:
         output_steer = self.model.outputTorque
+        pid_log.p = 0
+        pid_log.i = 0
+        pid_log.f = 0
+        pid_log.d = angle_steers_des # desired angle, good for plotting
+      #/Parse the model info
+      
       pid_log.output = output_steer
       self.M = output_steer
       # print(self.model.active, self.M)
