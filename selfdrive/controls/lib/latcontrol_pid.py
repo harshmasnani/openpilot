@@ -32,9 +32,12 @@ groups = [5, 15, 4, 20, 20]
 prev_data = 300
 fwd_data = [20, 40, 60, 80, 100]
 #PC
-# wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+
 #C2
-wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+try:
+  wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+except:
+  wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
 w, b = wb['wb']
 
 def model(x):
@@ -104,7 +107,8 @@ class ModelControls:
     predicted_angle = model(model_input) * norm[0]
 
     #L1 je negativen ce moramo precej bolj zaviti
-    L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(len(fwd_data))])/ len(fwd_data)
+    test_len = len(fwd_data) - 2
+    L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(test_len)])/ test_len
 
     #Poenostavljena logika: Ali je trenutni navor dovolj velik?
     if L1 > 0:
@@ -127,6 +131,7 @@ class LatControlPID():
     self.M = 0
     self.IMU_v = [0]*3
     self.IMU_alpha = [0]*3
+    self.CP_actuatorDelay = CP.steerActuatorDelay
 
   def reset(self):
     self.pid.reset()
@@ -179,6 +184,7 @@ class LatControlPID():
       self.model.parse_logs(CS.steeringAngleDeg, CS.vEgo, self.M, self.IMU_v, self.IMU_alpha)
       if self.count % 2 == 0:
         self.model.predict_torque(lat_plan, CP, VM, params.angleOffsetDeg)
+        CP.steerActuatorDelay = self.CP_actuatorDelay
       if self.model.active:
         output_steer = self.model.outputTorque
         pid_log.p = 0
