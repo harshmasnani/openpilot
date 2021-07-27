@@ -107,7 +107,7 @@ class ModelControls:
     predicted_angle = model(model_input) * norm[0]
 
     #L1 je negativen ce moramo precej bolj zaviti
-    test_len = len(fwd_data) - 2
+    test_len = len(fwd_data)
     L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(test_len)])/ test_len
 
     #Poenostavljena logika: Ali je trenutni navor dovolj velik?
