@@ -7,7 +7,7 @@ import numpy as np
 
 from selfdrive.controls.lib.drive_helpers import get_lag_adjusted_curvature
 from common.numpy_fast import clip
-MODEL_MIN_SPEED = 90 / 3.6 # minimum speed to use model
+MODEL_MIN_SPEED = 70 / 3.6 # minimum speed to use model
 
 STEER_FACTOR = 300/2 # We can add 4 out of 300 cNm per one output frame which runs at 50 Hz. So the factor is 300 due to the unit but /2 because 20ms instead of 10 
 STEER_DELTA_UP = 4
@@ -25,19 +25,19 @@ def apply_std_steer_torque_limits(apply_torque, apply_torque_last):
 
 
 #steering angle, speed, torque, IMU_linear, IMU_angular
-norm = (16.049999237060547, 35.887664794921875, 1.0, [19.161849975585938, 8.428146362304688, 11.452590942382812], [0.0880889892578125, 0.8147430419921875, 0.1421051025390625])
-groups = [5, 15, 4, 20, 20]
+norm = (41.70000076293945, 39.09857177734375, 1.0, [19.161849975585938, 8.428146362304688, 11.452590942382812], [0.18414306640625, 0.8147430419921875, 0.1421051025390625])
+groups = [4, 20, 20, 20, 20]
 
 #Data storage timings
 prev_data = 300
-fwd_data = [20, 40, 60, 80, 100]
+fwd_data = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 #PC
 
 #C2
 try:
-  wb = np.load('/data/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+  wb = np.load('/data/openpilot/model_L1_weights.npz', allow_pickle=True)
 except:
-  wb = np.load('/home/gregor/openpilot/model_s_keras_weights.npz', allow_pickle=True)
+  wb = np.load('/home/gregor/openpilot/model_L1_weights.npz', allow_pickle=True)
 w, b = wb['wb']
 
 def model(x):
@@ -107,7 +107,7 @@ class ModelControls:
     predicted_angle = model(model_input) * norm[0]
 
     #L1 je negativen ce moramo precej bolj zaviti
-    test_len = len(fwd_data)
+    test_len = 6 # Max 10
     L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(test_len)])/ test_len
 
     #Poenostavljena logika: Ali je trenutni navor dovolj velik?
@@ -182,9 +182,11 @@ class LatControlPID():
           if sensor.type == 4:  # gyro
             self.IMU_alpha = sensor.gyro.v
       self.model.parse_logs(CS.steeringAngleDeg, CS.vEgo, self.M, self.IMU_v, self.IMU_alpha)
+
       if self.count % 2 == 0:
         self.model.predict_torque(lat_plan, CP, VM, params.angleOffsetDeg)
         CP.steerActuatorDelay = self.CP_actuatorDelay
+
       if self.model.active:
         output_steer = self.model.outputTorque
         pid_log.p = 0
