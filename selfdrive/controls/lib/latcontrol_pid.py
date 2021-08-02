@@ -4,40 +4,28 @@ from selfdrive.controls.lib.pid import PIController
 from selfdrive.controls.lib.drive_helpers import get_steer_max
 from cereal import log, messaging
 import numpy as np
+from selfdrive.car.volkswagen.values import CarControllerParams as P
 
 from selfdrive.controls.lib.drive_helpers import get_lag_adjusted_curvature
 from common.numpy_fast import clip
-MODEL_MIN_SPEED = 70 / 3.6 # minimum speed to use model
+from random import random
 
-STEER_FACTOR = 300/2 # We can add 4 out of 300 cNm per one output frame which runs at 50 Hz. So the factor is 300 due to the unit but /2 because 20ms instead of 10 
-STEER_DELTA_UP = 4
-STEER_DELTA_DOWN = 10
+MODEL_MIN_SPEED = 90 / 3.6 # minimum speed to use model
 
-def apply_std_steer_torque_limits(apply_torque, apply_torque_last):
-  # print(apply_torque, apply_torque_last)
-  if apply_torque_last > 0:
-    apply_torque = clip(apply_torque, max(apply_torque_last - STEER_DELTA_DOWN, -STEER_DELTA_UP), apply_torque_last + STEER_DELTA_UP)
-  else:
-    apply_torque = clip(apply_torque, apply_torque_last - STEER_DELTA_UP, min(apply_torque_last + STEER_DELTA_DOWN, STEER_DELTA_UP))
-
-  # print(int(round(float(apply_torque))))
-  return int(round(float(apply_torque)))
-
+STEER_FACTOR = 300 
 
 #steering angle, speed, torque, IMU_linear, IMU_angular
-norm = (41.70000076293945, 39.09857177734375, 1.0, [19.161849975585938, 8.428146362304688, 11.452590942382812], [0.18414306640625, 0.8147430419921875, 0.1421051025390625])
-groups = [4, 20, 20, 20, 20]
+norm = (18.600000381469727, 33.88642883300781, 1.0, [18.733535766601562, 8.428146362304688, 9.84222412109375], [0.103515625, 0.3721466064453125, 0.1421051025390625])
+groups = [2, 10, 25, 10, 10]
 
 #Data storage timings
-prev_data = 300
+prev_data = 100
 fwd_data = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-#PC
 
-#C2
 try:
-  wb = np.load('/data/openpilot/model_L1_weights.npz', allow_pickle=True)
+  wb = np.load('/data/openpilot/model_s2_weights.npz', allow_pickle=True)
 except:
-  wb = np.load('/home/gregor/openpilot/model_L1_weights.npz', allow_pickle=True)
+  wb = np.load('/home/gregor/openpilot/model_s2_weights.npz', allow_pickle=True)
 w, b = wb['wb']
 
 def model(x):
@@ -47,8 +35,10 @@ def model(x):
   l1 = np.dot(l0, w[1]) + b[1]
   l1 = np.maximum(0, l1)
   l2 = np.dot(l1, w[2]) + b[2]
-  l2 = np.tanh(l2)
-  return l2
+  l2 = np.maximum(0, l2)
+  l3 = np.dot(l2, w[3]) + b[3]
+  l3 = np.tanh(l3)
+  return l3
 
 def get_model_input(phi, v, M, IMU_v, IMU_alpha, M_fut):
   phi_out = phi.reshape(-1, groups[0]).mean(axis=1)/norm[0]
@@ -60,6 +50,26 @@ def get_model_input(phi, v, M, IMU_v, IMU_alpha, M_fut):
   IMU_alpha_out = [IMU_alpha[i].reshape(-1, groups[4]).mean(axis=1)/norm[4][i] for i in range(3)]
 
   return np.concatenate([phi_out, v_out, M_out, IMU_v_out[0], IMU_v_out[1], IMU_v_out[2], IMU_alpha_out[0], IMU_alpha_out[1], IMU_alpha_out[2]])
+
+
+def apply_std_steer_torque_limits(apply_torque, apply_torque_last, driver_torque, LIMITS) -> int:
+
+  # limits due to driver torque
+  driver_max_torque = LIMITS.STEER_MAX + (LIMITS.STEER_DRIVER_ALLOWANCE + driver_torque * LIMITS.STEER_DRIVER_FACTOR) * LIMITS.STEER_DRIVER_MULTIPLIER
+  driver_min_torque = -LIMITS.STEER_MAX + (-LIMITS.STEER_DRIVER_ALLOWANCE + driver_torque * LIMITS.STEER_DRIVER_FACTOR) * LIMITS.STEER_DRIVER_MULTIPLIER
+  max_steer_allowed = max(min(LIMITS.STEER_MAX, driver_max_torque), 0)
+  min_steer_allowed = min(max(-LIMITS.STEER_MAX, driver_min_torque), 0)
+  apply_torque = clip(apply_torque, min_steer_allowed, max_steer_allowed)
+
+  # slow rate if steer torque increases in magnitude
+  if apply_torque_last > 0:
+    apply_torque = clip(apply_torque, max(apply_torque_last - LIMITS.STEER_DELTA_DOWN, -LIMITS.STEER_DELTA_UP),
+                        apply_torque_last + LIMITS.STEER_DELTA_UP)
+  else:
+    apply_torque = clip(apply_torque, apply_torque_last - LIMITS.STEER_DELTA_UP,
+                        min(apply_torque_last + LIMITS.STEER_DELTA_DOWN, LIMITS.STEER_DELTA_UP))
+
+  return int(round(float(apply_torque))) # int sems unneded
 
 class ModelControls:
   def __init__(self):
@@ -76,7 +86,7 @@ class ModelControls:
 
     if not self.active and v > MODEL_MIN_SPEED:
       self.active = True
-    if self.active and v < MODEL_MIN_SPEED - 10/3.6:
+    if self.active and v < MODEL_MIN_SPEED - 5/3.6:
       self.active = False
 
     # spravi phi, v, M v numPy array
@@ -92,7 +102,7 @@ class ModelControls:
       self.IMU_alpha[i] = np.roll(self.IMU_alpha[i], -1)
       self.IMU_alpha[i][-1] = IMU_alpha[i]
     
-  def predict_torque(self, lat_plan, CP, VM, angle_offset):
+  def predict_torque(self, lat_plan, CP, VM, angle_offset, CS):
     # Compute desired steering angle profile 
     steering_angle = [0]*len(fwd_data)
     for i in range(len(fwd_data)):
@@ -101,20 +111,30 @@ class ModelControls:
 
       steering_angle[i] = math.degrees(VM.get_steer_from_curvature(-desired_curvature, self.v[-1])) + angle_offset
 
+    # TODO: consider adding
+    # steering_angle = [CS.steeringAngleDeg] + steering_angle
+
     M_fut = np.ones((fwd_data[-1],))*self.M[-1]
 
     model_input = get_model_input(self.phi, self.v, self.M, self.IMU_v, self.IMU_alpha, M_fut)
     predicted_angle = model(model_input) * norm[0]
 
+    # TODO: consider adding
+    # CP.steerActuatorDelay = -0.2
+    # predicted_angle = [get_lag_adjusted_curvature(CP, self.v[-1], lat_plan.psis, lat_plan.curvatures, lat_plan.curvatureRates)] + predicted_angle
+
     #L1 je negativen ce moramo precej bolj zaviti
-    test_len = 6 # Max 10
-    L1 = sum([predicted_angle[i]-steering_angle[i] for i in range(test_len)])/ test_len
+    a = 5
+    w = [a/(a+i) for i in range(len(predicted_angle))]
+    L1 = sum([(predicted_angle[i]-steering_angle[i])*w[i] for i in range(len(predicted_angle))])
 
     #Poenostavljena logika: Ali je trenutni navor dovolj velik?
     if L1 > 0:
-      self.outputTorque = apply_std_steer_torque_limits(-STEER_FACTOR, STEER_FACTOR*self.M[-1])/STEER_FACTOR
+      self.outputTorque = apply_std_steer_torque_limits(-STEER_FACTOR, STEER_FACTOR*self.outputTorque, CS.steeringTorque, P)/STEER_FACTOR
     else:
-      self.outputTorque = apply_std_steer_torque_limits(STEER_FACTOR, STEER_FACTOR*self.M[-1])/STEER_FACTOR
+      self.outputTorque = apply_std_steer_torque_limits(STEER_FACTOR, STEER_FACTOR*self.outputTorque, CS.steeringTorque, P)/STEER_FACTOR
+    if random() < 0.01:
+      print("Right" if L1 > 0 else "Left")
 
 
 # Create our controller
@@ -184,7 +204,7 @@ class LatControlPID():
       self.model.parse_logs(CS.steeringAngleDeg, CS.vEgo, self.M, self.IMU_v, self.IMU_alpha)
 
       if self.count % 2 == 0:
-        self.model.predict_torque(lat_plan, CP, VM, params.angleOffsetDeg)
+        self.model.predict_torque(lat_plan, CP, VM, params.angleOffsetDeg, CS)
         CP.steerActuatorDelay = self.CP_actuatorDelay
 
       if self.model.active:
