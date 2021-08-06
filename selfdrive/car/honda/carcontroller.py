@@ -104,7 +104,7 @@ class CarController():
 
     # Never send cancel command if we never enter cruise state (no cruise if pedal)
     # Cancel cmd causes brakes to release at a standstill causing grinding
-    pcm_cancel_cmd = pcm_cancel_cmd and CS.CP.enableCruise
+    pcm_cancel_cmd = pcm_cancel_cmd and CS.CP.pcmCruise
 
     # *** rate limit after the enable check ***
     self.brake_last = rate_limit(brake, self.brake_last, -2., DT_CTRL)
@@ -171,7 +171,7 @@ class CarController():
         if CS.CP.carFingerprint in HONDA_BOSCH:
           accel = actuators.gas - actuators.brake
 
-          # TODO: pass in LoC.long_control_state and use that to decide starting/stoppping
+          # TODO: pass in LoC.long_control_state and use that to decide starting/stopping
           stopping = accel < 0 and CS.out.vEgo < 0.3
           starting = accel > 0 and CS.out.vEgo < 0.3
 

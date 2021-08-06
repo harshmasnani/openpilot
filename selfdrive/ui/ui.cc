@@ -14,8 +14,8 @@
 #include "selfdrive/ui/paint.h"
 #include "selfdrive/ui/qt/qt_window.h"
 
-#define BACKLIGHT_DT 0.25
-#define BACKLIGHT_TS 2.00
+#define BACKLIGHT_DT 0.05
+#define BACKLIGHT_TS 10.00
 #define BACKLIGHT_OFFROAD 75
 
 
@@ -63,14 +63,11 @@ static int get_path_length_idx(const cereal::ModelDataV2::XYZTData::Reader &line
   return max_idx;
 }
 
-static void update_leads(UIState *s, const cereal::RadarState::Reader &radar_state, std::optional<cereal::ModelDataV2::XYZTData::Reader> line) {
-  for (int i = 0; i < 2; ++i) {
-    auto lead_data = (i == 0) ? radar_state.getLeadOne() : radar_state.getLeadTwo();
-    if (lead_data.getStatus()) {
-      float z = line ? (*line).getZ()[get_path_length_idx(*line, lead_data.getDRel())] : 0.0;
-      // negative because radarState uses left positive convention
-      calib_frame_to_full_frame(s, lead_data.getDRel(), -lead_data.getYRel(), z + 1.22, &s->scene.lead_vertices[i]);
-    }
+static void update_leads(UIState *s, const cereal::ModelDataV2::LeadDataV2::Reader &lead_data, std::optional<cereal::ModelDataV2::XYZTData::Reader> line) {
+  if (lead_data.getProb() > 0.5) {
+    float z = line ? (*line).getZ()[get_path_length_idx(*line, lead_data.getXyva()[0])] : 0.0;
+    calib_frame_to_full_frame(s, lead_data.getXyva()[0], lead_data.getXyva()[1], z + 1.22, &s->scene.lead_vertices[0]);
+
   }
 }
 
@@ -85,7 +82,7 @@ static void update_line_data(const UIState *s, const cereal::ModelDataV2::XYZTDa
     v += calib_frame_to_full_frame(s, line_x[i], line_y[i] + y_off, line_z[i] + z_off, v);
   }
   pvd->cnt = v - pvd->v;
-  assert(pvd->cnt < std::size(pvd->v));
+  assert(pvd->cnt <= std::size(pvd->v));
 }
 
 static void update_model(UIState *s, const cereal::ModelDataV2::Reader &model) {
@@ -112,9 +109,9 @@ static void update_model(UIState *s, const cereal::ModelDataV2::Reader &model) {
   }
 
   // update path
-  auto lead_one = (*s->sm)["radarState"].getRadarState().getLeadOne();
-  if (lead_one.getStatus()) {
-    const float lead_d = lead_one.getDRel() * 2.;
+  auto lead_one = (*s->sm)["modelV2"].getModelV2().getLeads()[0];
+  if (lead_one.getProb() > 0.5) {
+    const float lead_d = lead_one.getXyva()[0] * 2.;
     max_distance = std::clamp((float)(lead_d - fmin(lead_d * 0.35, 10.)), 0.0f, max_distance);
   }
   max_idx = get_path_length_idx(model_position, max_distance);
@@ -134,12 +131,12 @@ static void update_state(UIState *s) {
     scene.engageable = sm["controlsState"].getControlsState().getEngageable();
     scene.dm_active = sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode();
   }
-  if (sm.updated("radarState")) {
+  if (sm.updated("modelV2") && s->vg) {
     std::optional<cereal::ModelDataV2::XYZTData::Reader> line;
     if (sm.rcv_frame("modelV2") > 0) {
       line = sm["modelV2"].getModelV2().getPosition();
     }
-    update_leads(s, sm["radarState"].getRadarState(), line);
+    update_leads(s, sm["modelV2"].getModelV2().getLeads()[0], line);
   }
   if (sm.updated("liveCalibration")) {
     scene.world_objects_visible = true;
@@ -158,7 +155,7 @@ static void update_state(UIState *s) {
       }
     }
   }
-  if (sm.updated("modelV2")) {
+  if (sm.updated("modelV2") && s->vg) {
     update_model(s, sm["modelV2"].getModelV2());
   }
   if (sm.updated("pandaState")) {
@@ -167,15 +164,6 @@ static void update_state(UIState *s) {
     scene.ignition = pandaState.getIgnitionLine() || pandaState.getIgnitionCan();
   } else if ((s->sm->frame - s->sm->rcv_frame("pandaState")) > 5*UI_FREQ) {
     scene.pandaType = cereal::PandaState::PandaType::UNKNOWN;
-  }
-  if (sm.updated("ubloxGnss")) {
-    auto data = sm["ubloxGnss"].getUbloxGnss();
-    if (data.which() == cereal::UbloxGnss::MEASUREMENT_REPORT) {
-      scene.satelliteCount = data.getMeasurementReport().getNumMeas();
-    }
-  }
-  if (sm.updated("gpsLocationExternal")) {
-    scene.gpsAccuracy = sm["gpsLocationExternal"].getGpsLocationExternal().getAccuracy();
   }
   if (sm.updated("carParams")) {
     scene.longitudinal_control = sm["carParams"].getCarParams().getOpenpilotLongitudinalControl();
@@ -199,16 +187,16 @@ static void update_state(UIState *s) {
     auto camera_state = sm["roadCameraState"].getRoadCameraState();
 
     float max_lines = Hardware::EON() ? 5408 : 1757;
-    float gain = camera_state.getGainFrac();
+    float gain = camera_state.getGain();
 
     if (Hardware::TICI()) {
-      // gainFrac can go up to 4, with another 2.5x multiplier based on globalGain. Scale back to 0 - 1
-      gain *= (camera_state.getGlobalGain() > 100 ? 2.5 : 1.0) / 10.0;
+      // Max gain is 4 * 2.5 (High Conversion Gain)
+      gain /= 10.0;
     }
 
     scene.light_sensor = std::clamp<float>((1023.0 / max_lines) * (max_lines - camera_state.getIntegLines() * gain), 0.0, 1023.0);
   }
-  scene.started = sm["deviceState"].getDeviceState().getStarted();
+  scene.started = sm["deviceState"].getDeviceState().getStarted() && scene.ignition;
 }
 
 static void update_params(UIState *s) {
@@ -233,6 +221,8 @@ static void update_vision(UIState *s) {
     } else if (!Hardware::PC()) {
       LOGE("visionIPC receive timeout");
     }
+  } else if (s->scene.started) {
+    util::sleep_for(1000. / UI_FREQ);
   }
 }
 
@@ -280,9 +270,8 @@ static void update_status(UIState *s) {
 
 QUIState::QUIState(QObject *parent) : QObject(parent) {
   ui_state.sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
-    "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "liveLocationKalman",
-    "pandaState", "carParams", "driverMonitoringState", "sensorEvents", "carState", "ubloxGnss",
-    "gpsLocationExternal", "roadCameraState",
+    "modelV2", "controlsState", "liveCalibration", "deviceState", "roadCameraState",
+    "pandaState", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
   });
 
   ui_state.fb_w = vwp_w;
@@ -313,7 +302,7 @@ void QUIState::update() {
     started_prev = ui_state.scene.started;
     emit offroadTransition(!ui_state.scene.started);
 
-    // Change timeout to 0 when onroad, this will call update continously.
+    // Change timeout to 0 when onroad, this will call update continuously.
     // This puts visionIPC in charge of update frequency, reducing video latency
     timer->start(ui_state.scene.started ? 0 : 1000 / UI_FREQ);
   }
