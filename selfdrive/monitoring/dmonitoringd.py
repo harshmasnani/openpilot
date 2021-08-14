@@ -30,25 +30,19 @@ def dmonitoringd_thread(sm=None, pm=None):
     if not sm.updated['driverState']:
       continue
 
-    # Get interaction
-    if sm.updated['carState']:
-      driver_engaged = sm['carState'].steeringPressed 
-      if driver_engaged:
-        driver_status.update(Events(), True, sm['controlsState'].enabled, sm['carState'].standstill)
-
     if sm.updated['modelV2']:
       driver_status.set_policy(sm['modelV2'])
 
     # Get data from dmonitoringmodeld
     events = Events()
-    driver_status.get_pose(sm['driverState'], sm['liveCalibration'].rpyCalib, sm['carState'].vEgo, sm['controlsState'].enabled)
+    driver_status.get_pose(sm['driverState'], sm['liveCalibration'].rpyCalib, sm['carState'].vEgo, True)
 
     # Block engaging after max number of distrations
     if driver_status.terminal_alert_cnt >= MAX_TERMINAL_ALERTS or driver_status.terminal_time >= MAX_TERMINAL_DURATION:
       events.add(car.CarEvent.EventName.tooDistracted)
 
     # Update events from driver state
-    driver_status.update(events, driver_engaged, sm['controlsState'].enabled, sm['carState'].standstill)
+    driver_status.update(events, driver_engaged, True, sm['carState'].standstill)
 
     # build driverMonitoringState packet
     dat = messaging.new_message('driverMonitoringState')
