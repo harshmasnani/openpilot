@@ -422,8 +422,7 @@ class Controls:
 
     # Check if actuators are enabled
     self.active = self.state == State.enabled or self.state == State.softDisabling
-    if self.active:
-      self.current_alert_types.append(ET.WARNING)
+    self.current_alert_types.append(ET.WARNING)
 
     # Check if openpilot is engaged
     self.enabled = self.active or self.state == State.preEnabled
