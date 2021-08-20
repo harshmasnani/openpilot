@@ -1,15 +1,18 @@
 #!/usr/bin/bash -e
 
-export GIT_COMMITTER_NAME="Vehicle Researcher"
-export GIT_COMMITTER_EMAIL="user@comma.ai"
-export GIT_AUTHOR_NAME="Vehicle Researcher"
-export GIT_AUTHOR_EMAIL="user@comma.ai"
-export GIT_SSH_COMMAND="ssh -i /data/gitkey"
+# git diff --name-status origin/release3-staging | grep "^A" | less
 
-BUILD_DIR=/data/releasepilot
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+
+cd $DIR
+
+BUILD_DIR=/data/openpilot
 SOURCE_DIR="$(git rev-parse --show-toplevel)"
 
 BRANCH=release3-staging
+
+# set git identity
+source $DIR/identity.sh
 
 echo "[-] Setting up repo T=$SECONDS"
 rm -rf $BUILD_DIR
@@ -30,17 +33,16 @@ cd $BUILD_DIR
 
 rm -f panda/board/obj/panda.bin.signed
 
-VERSION=$(cat selfdrive/common/version.h | awk -F\" '{print $2}')
-echo "#define COMMA_VERSION \"$VERSION-$(git --git-dir=$SOURCE_DIR/.git rev-parse --short HEAD)-$(date '+%Y-%m-%dT%H:%M:%S')\"" > selfdrive/common/version.h
+VERSION=$(cat selfdrive/common/version.h | awk -F[\"-]  '{print $2}')
+echo "#define COMMA_VERSION \"$VERSION-release\"" > selfdrive/common/version.h
 
 echo "[-] committing version $VERSION T=$SECONDS"
 git add -f .
 git commit -a -m "openpilot v$VERSION release"
 
-# TODO: sign with release cert
 # Build panda firmware
 pushd panda/
-scons -U .
+CERT=/data/pandaextra/certs/release RELEASE=1 scons -u .
 mv board/obj/panda.bin.signed /tmp/panda.bin.signed
 popd
 

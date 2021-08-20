@@ -1,6 +1,9 @@
 #!/usr/bin/bash -e
 
-export SOURCE_DIR="/data/openpilot_source/"
+if [ -z "$SOURCE_DIR" ]; then
+  echo "SOURCE_DIR must be set"
+  exit 1
+fi
 
 if [ -z "$GIT_COMMIT" ]; then
   echo "GIT_COMMIT must be set"
@@ -12,6 +15,9 @@ if [ -z "$TEST_DIR" ]; then
   exit 1
 fi
 
+umount /data/safe_staging/merged/ || true
+sudo umount /data/safe_staging/merged/ || true
+
 if [ -f "/EON" ]; then
   rm -rf /data/core
   rm -rf /data/neoupdate
@@ -20,7 +26,10 @@ fi
 
 # set up environment
 cd $SOURCE_DIR
-git fetch origin $GIT_COMMIT
+git reset --hard
+git fetch
+find . -maxdepth 1 -not -path './.git' -not -name '.' -not -name '..' -exec rm -rf '{}' \;
+git fetch --verbose origin $GIT_COMMIT
 git reset --hard $GIT_COMMIT
 git checkout $GIT_COMMIT
 git clean -xdf

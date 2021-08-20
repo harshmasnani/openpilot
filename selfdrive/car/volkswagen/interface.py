@@ -26,8 +26,7 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def get_params(candidate, fingerprint=gen_empty_fingerprint(), car_fw=None):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
-
-    # VW port is a community feature, since we don't own one to test
+    ret.carName = "volkswagen"
     ret.communityFeature = True
     ret.carName = "volkswagen"
     ret.radarOffCan = True
@@ -46,6 +45,7 @@ class CarInterface(CarInterfaceBase):
     
     # Global tuning defaults, can be overridden per-vehicle
 
+    ret.steerActuatorDelay = 0.05
     ret.steerRateCost = 1.0
     ret.steerLimitTimer = 0.4
     ret.steerRatio = 15.6  # Let the params learner figure this out
@@ -74,6 +74,7 @@ class CarInterface(CarInterfaceBase):
 
     # TODO: start from empirically derived lateral slip stiffness for the civic and scale by
     # mass and CG position, so all cars will have approximately similar dyn behaviors
+    ret.centerToFront = ret.wheelbase * 0.45
     ret.tireStiffnessFront, ret.tireStiffnessRear = scale_tire_stiffness(ret.mass, ret.wheelbase, ret.centerToFront,
                                                                          tire_stiffness_factor=tire_stiffness_factor)
 
@@ -161,7 +162,7 @@ class CarInterface(CarInterfaceBase):
     return self.CS.out
 
   def apply(self, c):
-    can_sends = self.CC.update(c.enabled, self.CS, self.frame, c.actuators,
+    can_sends = self.CC.update(c.enabled, self.CS, self.frame, self.ext_bus, c.actuators,
                    c.hudControl.visualAlert,
                    c.hudControl.leftLaneVisible,
                    c.hudControl.rightLaneVisible)
