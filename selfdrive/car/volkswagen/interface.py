@@ -146,8 +146,8 @@ class CarInterface(CarInterfaceBase):
       events.add(EventName.parkBrake)
     if self.CS.steeringFault:
       events.add(EventName.steerTempUnavailable)
-    if ret.vEgo < self.CP.minSteerSpeed:
-      events.add(car.CarEvent.EventName.belowSteerSpeed)
+    # if ret.vEgo < self.CP.minSteerSpeed:
+    #   events.add(car.CarEvent.EventName.belowSteerSpeed)
 
     ret.events = events.to_msg()
     ret.buttonEvents = buttonEvents
