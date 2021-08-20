@@ -50,7 +50,7 @@ constexpr int OUTPUT_SIZE =  POSE_IDX + POSE_SIZE;
 
 constexpr float FCW_THRESHOLD_5MS2_HIGH = 0.15;
 constexpr float FCW_THRESHOLD_5MS2_LOW = 0.05;
-constexpr float FCW_THRESHOLD_3MS2 = 0.7;
+constexpr float FCW_THRESHOLD_3MS2 = 0.3;
 
 float prev_brake_5ms2_probs[5] = {0,0,0,0,0};
 float prev_brake_3ms2_probs[3] = {0,0,0};
@@ -216,9 +216,12 @@ void fill_meta(cereal::ModelDataV2::MetaData::Builder meta, const float *meta_da
     float threshold = i < 2 ? FCW_THRESHOLD_5MS2_LOW : FCW_THRESHOLD_5MS2_HIGH;
     above_fcw_threshold = above_fcw_threshold && prev_brake_5ms2_probs[i] > threshold;
   }
+  bool above_fcw_threshold_3 = true;
   for (int i=0; i<3; i++) {
-    above_fcw_threshold = above_fcw_threshold && prev_brake_3ms2_probs[i] > FCW_THRESHOLD_3MS2;
+    above_fcw_threshold_3 = above_fcw_threshold_3 && prev_brake_3ms2_probs[i] > FCW_THRESHOLD_3MS2;
   }
+
+  above_fcw_threshold = above_fcw_threshold || above_fcw_threshold_3;
 
   auto disengage = meta.initDisengagePredictions();
   disengage.setT({2,4,6,8,10});
