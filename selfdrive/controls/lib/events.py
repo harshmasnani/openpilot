@@ -54,6 +54,8 @@ class Events:
     return len(self.events)
 
   def add(self, event_name, static=False):
+    if event_name == 68:
+      print("WARNING")
     if static:
       self.static_events.append(event_name)
     self.events.append(event_name)
@@ -74,6 +76,8 @@ class Events:
 
     ret = []
     for e in self.events:
+      if not e in EVENTS:
+        continue
       types = EVENTS[e].keys()
       for et in event_types:
         if et in types:

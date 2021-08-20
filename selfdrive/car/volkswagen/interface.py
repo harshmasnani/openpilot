@@ -66,8 +66,6 @@ class CarInterface(CarInterfaceBase):
 
     ret.centerToFront = ret.wheelbase * 0.4
 
-    ret.enableCamera = True  # Stock camera detection doesn't apply to VW
-
     # TODO: get actual value, for now starting with reasonable value for
     # civic and scaling by mass and wheelbase
     ret.rotationalInertia = scale_rot_inertia(ret.mass, ret.wheelbase)
@@ -162,9 +160,11 @@ class CarInterface(CarInterfaceBase):
     return self.CS.out
 
   def apply(self, c):
-    can_sends = self.CC.update(c.enabled, self.CS, self.frame, self.ext_bus, c.actuators,
+    can_sends = self.CC.update(c.enabled, self.CS, self.frame, 2, c.actuators,
                    c.hudControl.visualAlert,
                    c.hudControl.leftLaneVisible,
-                   c.hudControl.rightLaneVisible)
+                   c.hudControl.rightLaneVisible,
+                   False, 
+                   False)
     self.frame += 1
     return can_sends
