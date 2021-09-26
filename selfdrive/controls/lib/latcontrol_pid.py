@@ -10,7 +10,7 @@ from selfdrive.controls.lib.drive_helpers import get_lag_adjusted_curvature
 from common.numpy_fast import clip
 from random import random
 
-MODEL_MIN_SPEED = 180 / 3.6 # minimum speed to use model
+MODEL_MIN_SPEED = 90 / 3.6 # minimum speed to use model
 
 STEER_FACTOR = 300 
 
