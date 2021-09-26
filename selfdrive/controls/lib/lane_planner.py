@@ -89,6 +89,6 @@ class LanePlanner:
     lane_path_y_interp = np.interp(path_t, self.ll_t, lane_path_y)
     path_xyz[:,1] = self.d_prob * lane_path_y_interp + (1.0 - self.d_prob) * path_xyz[:,1]
 
-    self.path_offset = interp(v_ego, [40/3.6, 70/3.6, 90/3.6], [0.08, 0.04, 0]) #Above 90 is highway speed
+    self.path_offset = interp(v_ego, [40/3.6, 60/3.6, 90/3.6, 100/3.6], [0.11, 0.09, 0.04, 0]) #Above 90 is highway speed
     path_xyz[:, 1] -= self.path_offset
     return path_xyz
