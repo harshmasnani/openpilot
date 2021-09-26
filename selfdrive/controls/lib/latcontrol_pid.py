@@ -10,7 +10,7 @@ from selfdrive.controls.lib.drive_helpers import get_lag_adjusted_curvature
 from common.numpy_fast import clip
 from random import random
 
-MODEL_MIN_SPEED = 90 / 3.6 # minimum speed to use model
+MODEL_MIN_SPEED = 180 / 3.6 # minimum speed to use model
 
 STEER_FACTOR = 300 
 
@@ -143,7 +143,8 @@ class LatControlPID():
     self.pid = PIController((CP.lateralTuning.pid.kpBP, CP.lateralTuning.pid.kpV),
                             (CP.lateralTuning.pid.kiBP, CP.lateralTuning.pid.kiV),
                             (CP.lateralTuning.pid.kdBP, CP.lateralTuning.pid.kdV),
-                            k_f=CP.lateralTuning.pid.kf, pos_limit=1.0, neg_limit=-1.0,
+                            (CP.lateralTuning.pid.kfBP, CP.lateralTuning.pid.kfV),
+                            pos_limit=1.0, neg_limit=-1.0,
                             sat_limit=CP.steerLimitTimer)
     self.count = 0
     self.model = ModelControls()
