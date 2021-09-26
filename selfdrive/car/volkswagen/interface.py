@@ -52,12 +52,12 @@ class CarInterface(CarInterfaceBase):
     tire_stiffness_factor = 0.8  # Let the params learner figure this out
     # ret.lateralTuning.pid.kf = 0.00006
     
-    ret.lateralTuning.pid.kfBP = [0., 105*CV.KPH_TO_MS]
+    ret.lateralTuning.pid.kfBP = [20/3.6, 50/3.6, 70/3.6, 90/3.6]
     ret.lateralTuning.pid.kpBP = [0., 105*CV.KPH_TO_MS]
     ret.lateralTuning.pid.kiBP = [0., 105*CV.KPH_TO_MS]
     ret.lateralTuning.pid.kdBP = [0., 105*CV.KPH_TO_MS]
 
-    ret.lateralTuning.pid.kfV = [0.0006, 0.0006]
+    ret.lateralTuning.pid.kfV = [0.00060, 0.00030, 0.00020, 0.00010]
     ret.lateralTuning.pid.kpV = [0.15, 0.19]
     ret.lateralTuning.pid.kiV = [0.05,  0.08]
     ret.lateralTuning.pid.kdV = [0., 0.]
@@ -74,7 +74,6 @@ class CarInterface(CarInterfaceBase):
 
     # TODO: start from empirically derived lateral slip stiffness for the civic and scale by
     # mass and CG position, so all cars will have approximately similar dyn behaviors
-    ret.centerToFront = ret.wheelbase * 0.45
     ret.tireStiffnessFront, ret.tireStiffnessRear = scale_tire_stiffness(ret.mass, ret.wheelbase, ret.centerToFront,
                                                                          tire_stiffness_factor=tire_stiffness_factor)
 
