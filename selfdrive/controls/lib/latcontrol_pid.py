@@ -213,7 +213,7 @@ class LatControlPID():
         pid_log.p = 0
         pid_log.i = 0
         pid_log.f = 0
-        pid_log.d = angle_steers_des # desired angle, good for plotting
+      pid_log.d = angle_steers_des # desired angle, good for plotting
       #/Parse the model info
       
       pid_log.output = output_steer
