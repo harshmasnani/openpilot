@@ -377,8 +377,13 @@ class Controls:
 
     # ENABLED, PRE ENABLING, SOFT DISABLING
     if self.state != State.disabled:
-      if False:
-        pass
+      if self.events.any(ET.USER_DISABLE):
+        self.state = State.disabled
+        self.current_alert_types.append(ET.USER_DISABLE)
+
+      elif self.events.any(ET.IMMEDIATE_DISABLE):
+        self.state = State.disabled
+        self.current_alert_types.append(ET.IMMEDIATE_DISABLE)
       else:
         # ENABLED
         if self.state == State.enabled:
