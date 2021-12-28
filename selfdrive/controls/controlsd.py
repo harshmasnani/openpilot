@@ -123,12 +123,8 @@ class Controls:
 
     if self.CP.steerControlType == car.CarParams.SteerControlType.angle:
       self.LaC = LatControlAngle(self.CP)
-    elif self.CP.lateralTuning.which() == 'pid':
-      self.LaC = LatControlPID(self.CP)
-    elif self.CP.lateralTuning.which() == 'indi':
+    else:
       self.LaC = LatControlINDI(self.CP)
-    elif self.CP.lateralTuning.which() == 'lqr':
-      self.LaC = LatControlLQR(self.CP)
 
     self.initialized = False
     self.state = State.disabled
@@ -612,11 +608,7 @@ class Controls:
       controlsState.lateralControlState.debugState = lac_log
     elif self.CP.steerControlType == car.CarParams.SteerControlType.angle:
       controlsState.lateralControlState.angleState = lac_log
-    elif self.CP.lateralTuning.which() == 'pid':
-      controlsState.lateralControlState.pidState = lac_log
-    elif self.CP.lateralTuning.which() == 'lqr':
-      controlsState.lateralControlState.lqrState = lac_log
-    elif self.CP.lateralTuning.which() == 'indi':
+    else:
       controlsState.lateralControlState.indiState = lac_log
     self.pm.send('controlsState', dat)
 
